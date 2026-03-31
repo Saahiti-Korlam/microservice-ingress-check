@@ -48,13 +48,26 @@ pipeline {
 
         stage('Configure AWS and Kubectl') {
             steps {
-                echo 'Configuring AWS CLI and kubectl...'
+                echo 'Configuring AWS CLI and kubectl with IAM role...'
                 script {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-                        sh "aws configure set region ${AWS_REGION}"
-                        sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${K8S_CLUSTER_NAME}"
-                        sh "kubectl config current-context"
-                        sh "kubectl get nodes"
+                    // Use IAM user or role with cluster admin access (via EKS Access tab)
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-creds',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ]]) {
+                        sh '''
+                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+                            export AWS_DEFAULT_REGION=${AWS_REGION}
+
+                            aws sts get-caller-identity
+                            aws eks update-kubeconfig --region ${AWS_REGION} --name ${K8S_CLUSTER_NAME}
+
+                            kubectl config current-context
+                            kubectl get nodes
+                        '''
                     }
                 }
             }
@@ -64,13 +77,11 @@ pipeline {
             steps {
                 echo 'Deploying application to Kubernetes...'
                 script {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-                        sh "sed -i 's|sahichoco123/techsolutions-app:latest|kastrov/techsolutions-app:${env.IMAGE_TAG}|g' k8s/deployment.yaml"
-                        sh "kubectl apply -f k8s/deployment.yaml"
-                        sh "kubectl rollout status deployment/${APP_NAME}-deployment --timeout=300s"
-                        sh "kubectl get pods -l app=${APP_NAME}"
-                        sh "kubectl get svc ${APP_NAME}-service"
-                    }
+                    sh "sed -i 's|sahichoco123/techsolutions-app:latest|sahichoco123/techsolutions-app:${env.IMAGE_TAG}|g' k8s/deployment.yaml"
+                    sh "kubectl apply -f k8s/deployment.yaml"
+                    sh "kubectl rollout status deployment/${APP_NAME}-deployment --timeout=300s"
+                    sh "kubectl get pods -l app=${APP_NAME}"
+                    sh "kubectl get svc ${APP_NAME}-service"
                 }
             }
         }
@@ -79,12 +90,10 @@ pipeline {
             steps {
                 echo 'Deploying Ingress resource...'
                 script {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-                        sh "kubectl apply -f k8s/ingress.yaml"
-                        sleep(10)
-                        sh "kubectl get ingress ${APP_NAME}-ingress"
-                        sh "kubectl describe ingress ${APP_NAME}-ingress"
-                    }
+                    sh "kubectl apply -f k8s/ingress.yaml"
+                    sleep(10)
+                    sh "kubectl get ingress ${APP_NAME}-ingress"
+                    sh "kubectl describe ingress ${APP_NAME}-ingress"
                 }
             }
         }
@@ -93,42 +102,38 @@ pipeline {
             steps {
                 echo 'Getting Ingress URL...'
                 script {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-                        timeout(time: 10, unit: 'MINUTES') {
-                            waitUntil {
-                                script {
-                                    def result = sh(
-                                        script: "kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
-                                        returnStdout: true
-                                    ).trim()
+                    timeout(time: 10, unit: 'MINUTES') {
+                        waitUntil {
+                            script {
+                                def result = sh(
+                                    script: "kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+                                    returnStdout: true
+                                ).trim()
 
-                                    if (result && result != '') {
-                                        env.INGRESS_URL = "http://${result}"
-                                        echo "Ingress URL: ${env.INGRESS_URL}"
-                                        return true
-                                    }
-                                    return false
+                                if (result && result != '') {
+                                    env.INGRESS_URL = "http://${result}"
+                                    echo "Ingress URL: ${env.INGRESS_URL}"
+                                    return true
                                 }
+                                return false
                             }
                         }
-
-                        echo "========================================="
-                        echo "DEPLOYMENT SUCCESSFUL!"
-                        echo "========================================="
-                        echo "Application URL: ${env.INGRESS_URL}"
-                        echo ""
-                        echo "Available Paths:"
-                        echo "- Home Page: ${env.INGRESS_URL}/"
-                        echo "- About Page: ${env.INGRESS_URL}/about"
-                        echo "- Services Page: ${env.INGRESS_URL}/services"
-                        echo "- Contact Page: ${env.INGRESS_URL}/contact"
-                        echo "========================================="
-
-                        sh "curl -I ${env.INGRESS_URL}/ || echo 'Home page check failed'"
-                        sh "curl -I ${env.INGRESS_URL}/about || echo 'About page check failed'"
-                        sh "curl -I ${env.INGRESS_URL}/services || echo 'Services page check failed'"
-                        sh "curl -I ${env.INGRESS_URL}/contact || echo 'Contact page check failed'"
                     }
+
+                    echo "========================================="
+                    echo "DEPLOYMENT SUCCESSFUL!"
+                    echo "Application URL: ${env.INGRESS_URL}"
+                    echo "Available Paths:"
+                    echo "- Home Page: ${env.INGRESS_URL}/"
+                    echo "- About Page: ${env.INGRESS_URL}/about"
+                    echo "- Services Page: ${env.INGRESS_URL}/services"
+                    echo "- Contact Page: ${env.INGRESS_URL}/contact"
+                    echo "========================================="
+
+                    sh "curl -I ${env.INGRESS_URL}/ || echo 'Home page check failed'"
+                    sh "curl -I ${env.INGRESS_URL}/about || echo 'About page check failed'"
+                    sh "curl -I ${env.INGRESS_URL}/services || echo 'Services page check failed'"
+                    sh "curl -I ${env.INGRESS_URL}/contact || echo 'Contact page check failed'"
                 }
             }
         }
