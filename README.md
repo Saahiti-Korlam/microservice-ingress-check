@@ -436,12 +436,16 @@ The NGINX Ingress Controller is deployed on the cluster and will provision an AW
 1. Create a new Pipeline job in Jenkins
 2. Point it to your GitHub repository (using `github_cred`)
 3. Trigger the build
+<img width="952" height="448" alt="build-success2" src="https://github.com/user-attachments/assets/bc4ca783-a2d8-4df7-bcb2-231283ca035c" />
+   
 
 ### Step 2: After a successful build, check pods
 
 ```bash
 kubectl get pods
 ```
+<img width="959" height="382" alt="build-success" src="https://github.com/user-attachments/assets/fa1e9547-fa3f-45ea-8c2b-5e4775b689ad" />
+<img width="871" height="230" alt="pods-run" src="https://github.com/user-attachments/assets/73d084e2-d1e9-4a97-bb81-4453201cc946" />
 
 ### Step 3: Get the Ingress URL
 
@@ -455,6 +459,8 @@ Access the application using the `EXTERNAL-IP` (AWS ELB DNS name) from the outpu
 ```
 a7aedb2d9a7f94113bb344cb3755101e-9ff7166868077096.elb.ap-south-1.amazonaws.com
 ```
+<img width="938" height="434" alt="applicationpage1" src="https://github.com/user-attachments/assets/238d6900-89d6-46d2-bf85-e3db5b80793f" />
+
 
 > 🌐 Different application pages are served based on URL paths — this is **path-based routing** via the Ingress resource.
 
@@ -462,7 +468,7 @@ a7aedb2d9a7f94113bb344cb3755101e-9ff7166868077096.elb.ap-south-1.amazonaws.com
 The Jenkins CI/CD pipeline successfully builds Docker images, pushes them to DockerHub, and deploys to the EKS cluster. The application is accessible externally via the NGINX Ingress Load Balancer URL with path-based routing.
 
 ---
-
+<img width="959" height="446" alt="applicationpage2" src="https://github.com/user-attachments/assets/3a06de5a-9e8e-4bb9-a849-86d06090a8db" />
 ## Phase 11 – Monitoring with Prometheus
 
 > Install and configure Prometheus on a monitoring server (can be a separate EC2 instance).
@@ -589,6 +595,12 @@ http://<monitoring-server-ip>:9090
 Prometheus is installed as a system service running under a dedicated non-login user. It is configured to scrape metrics and is accessible on port 9090. This sets the foundation for connecting Grafana dashboards for full observability of the Kubernetes cluster and application.
 
 ---
+### Home page of Grafana
+<img width="938" height="483" alt="grafana-home" src="https://github.com/user-attachments/assets/ef230428-ec3b-4d27-aad7-4ea26dfcbd1b" />
+### Dashboards
+<img width="959" height="433" alt="grafana3-dashboard-jenkins" src="https://github.com/user-attachments/assets/5bbac909-4c0b-42c5-912c-332916f594dc" />
+<img width="959" height="508" alt="grafana3-dashboard-prometheus" src="https://github.com/user-attachments/assets/78af2039-9cb4-4e38-bd1e-9dd9a1f124cb" />
+
 
 ## 🔒 Security Notes
 
